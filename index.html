@@ -139,23 +139,15 @@
         import { getFirestore, collection, getDocs, addDoc, doc, deleteDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
 
         // ****** यहाँ अपनी FIREBASE CONFIG पेस्ट करें ******
-        const firebaseConfig = {apiKey: "AIzaSyAyT0Ok3l8VHmfN-cuiRtug5r13P0Mcrzs",
-  authDomain: "sohail-general-store-552da.firebaseapp.com",
-  projectId: "sohail-general-store-552da",
-  storageBucket: "sohail-general-store-552da.firebasestorage.app",
-  messagingSenderId: "135855096413",
-  appId: "1:135855096413:web:7f37492fa4318d9ce903b4",
+        const firebaseConfig = {
+        apiKey: "AIzaSyAyT0Ok3l8VHmfN-cuiRtug5r13P0Mcrzs"
+  authDomain: "sohail-general-store-552da.firebaseapp.com"
+  projectId: "sohail-general-store-552da"
+  storageBucket: "sohail-general-store-552da.firebasestorage.app"
+  messagingSenderId: "135855096413"
+  appId: "1:135855096413:web:7f37492fa4318d9ce903b4"
   measurementId: "G-2JWXVH9TGB"
-            // apiKey: "...",
-            // authDomain: "...",
-            // projectId: "...",
-            // storageBucket: "...",
-            // messagingSenderId: "...",
-            // appId: "..."
         };
-        // ***********************************************
-
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const productsCollection = collection(db, 'products');
