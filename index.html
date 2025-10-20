@@ -3,67 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sohail Kirana Store</title>
+    <title>Sohail General Store</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        /* Custom styles for better look and feel */
-        body {
-            font-family: 'Inter', sans-serif; /* Using a modern font */
+        body { font-family: 'Inter', sans-serif; }
+        .product-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .modal-backdrop { background-color: rgba(0,0,0,0.5); transition: opacity 0.3s ease; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
         }
-        .product-card {
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-        .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        .modal-backdrop {
-            background-color: rgba(0,0,0,0.5);
-            transition: opacity 0.3s ease;
-        }
-        /* Hide scrollbar for cleaner look */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body class="bg-gray-100">
 
-    <!-- =========== Customer View =========== -->
-    <div id="customerView" class="pb-24">
-        <!-- Header -->
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="fixed inset-0 z-50 flex items-center justify-center bg-white">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Customer View -->
+    <div id="customerView" class="pb-24 hidden">
         <header class="bg-white shadow-md sticky top-0 z-40">
             <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-800">Sohail Kirana Store</h1>
-                <div class="flex items-center space-x-4">
-                    <div id="cartButton" class="relative cursor-pointer">
-                        <i class="fa-solid fa-cart-shopping text-2xl text-gray-600"></i>
-                        <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                    </div>
+                <h1 class="text-2xl font-bold text-gray-800">Sohail General Store</h1>
+                <div id="cartButton" class="relative cursor-pointer">
+                    <i class="fa-solid fa-cart-shopping text-2xl text-gray-600"></i>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
                 </div>
             </div>
-            <!-- Search Bar -->
             <div class="container mx-auto px-4 pb-3">
                  <input type="text" id="searchInput" placeholder="प्रोडक्ट खोजें..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
         </header>
-
-        <!-- Product Grid -->
         <main class="container mx-auto p-4">
             <div id="productGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                <!-- Products will be dynamically inserted here -->
+                <!-- Products will be dynamically inserted here from Firebase -->
             </div>
              <p id="noResults" class="text-center text-gray-500 mt-8 hidden">कोई प्रोडक्ट नहीं मिला।</p>
         </main>
-
-        <!-- Floating Action Buttons -->
         <div class="fixed bottom-4 right-4 z-50 flex flex-col items-center space-y-3">
             <a href="https://wa.me/919555149823?text=नमस्ते,%20मुझे%20आपके%20स्टोर%20से%20कुछ%20जानकारी%20चाहिए।" target="_blank" class="bg-green-500 text-white rounded-full h-14 w-14 flex items-center justify-center shadow-lg hover:bg-green-600">
                 <i class="fab fa-whatsapp text-3xl"></i>
@@ -72,16 +64,13 @@
                 <i class="fa-solid fa-phone text-2xl"></i>
             </a>
         </div>
-        
-        <!-- Admin Panel Access Button -->
         <div class="fixed bottom-4 left-4 z-50">
              <button id="adminAccessBtn" class="bg-gray-700 text-white px-3 py-2 rounded-lg shadow-lg hover:bg-gray-800 text-sm">Admin Panel</button>
         </div>
     </div>
 
-    <!-- =========== Admin View =========== -->
+    <!-- Admin View -->
     <div id="adminView" class="hidden">
-        <!-- Admin Login -->
         <div id="adminLogin" class="min-h-screen flex items-center justify-center bg-gray-200">
             <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
                 <h2 class="text-2xl font-bold mb-6 text-center">Admin Login</h2>
@@ -90,31 +79,18 @@
                 <p id="loginError" class="text-red-500 text-sm mt-2 text-center hidden">गलत पासवर्ड!</p>
             </div>
         </div>
-        
-        <!-- Admin Dashboard -->
         <div id="adminDashboard" class="hidden">
             <header class="bg-gray-800 text-white p-4 flex justify-between items-center">
                 <h1 class="text-xl font-bold">Admin Dashboard</h1>
                 <button id="customerViewBtn" class="bg-gray-600 px-3 py-1 rounded hover:bg-gray-500">ग्राहक व्यू देखें</button>
             </header>
-            
             <div class="flex border-b">
                 <button data-tab="orders" class="tab-btn flex-1 p-4 bg-gray-200 text-black font-semibold">ऑर्डर देखें</button>
                 <button data-tab="products" class="tab-btn flex-1 p-4 bg-blue-500 text-white font-semibold">प्रोडक्ट मैनेज करें</button>
             </div>
-
-            <!-- Orders Tab -->
-            <div id="ordersTab" class="p-4 hidden">
-                <h2 class="text-2xl font-bold mb-4">आए हुए ऑर्डर</h2>
-                <div id="orderList" class="space-y-4">
-                    <!-- Orders will be inserted here -->
-                </div>
-            </div>
-
-            <!-- Products Tab -->
+            <div id="ordersTab" class="p-4 hidden"><h2 class="text-2xl font-bold mb-4">आए हुए ऑर्डर</h2><div id="orderList" class="space-y-4"></div></div>
             <div id="productsTab" class="p-4">
                 <h2 class="text-2xl font-bold mb-4">प्रोडक्ट मैनेज करें</h2>
-                <!-- Add New Product Form -->
                 <div class="bg-white p-4 rounded-lg shadow-md mb-6">
                     <h3 class="text-lg font-semibold mb-2">नया प्रोडक्ट जोड़ें</h3>
                     <input type="text" id="newProductName" placeholder="प्रोडक्ट का नाम" class="w-full border p-2 mb-2 rounded">
@@ -122,459 +98,237 @@
                     <input type="text" id="newProductImage" placeholder="इमेज URL" class="w-full border p-2 mb-2 rounded">
                     <button id="addProductBtn" class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">प्रोडक्ट जोड़ें</button>
                 </div>
-                <!-- Existing Product List -->
                 <div>
                     <h3 class="text-lg font-semibold mb-2">मौजूदा प्रोडक्ट्स</h3>
-                    <div id="adminProductList" class="space-y-2">
-                        <!-- Admin product list will be inserted here -->
-                    </div>
+                    <div id="adminProductList" class="space-y-2"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- =========== Modals =========== -->
-    <!-- Cart Modal -->
+    <!-- Modals -->
     <div id="cartModal" class="fixed inset-0 z-50 hidden modal-backdrop items-end sm:items-center sm:justify-center">
         <div class="bg-white w-full sm:max-w-lg rounded-t-lg sm:rounded-lg shadow-xl flex flex-col" style="max-height: 90vh;">
-            <div class="flex justify-between items-center p-4 border-b">
-                <h2 class="text-xl font-bold">आपका कार्ट</h2>
-                <button id="closeCartBtn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-            </div>
+            <div class="flex justify-between items-center p-4 border-b"><h2 class="text-xl font-bold">आपका कार्ट</h2><button id="closeCartBtn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button></div>
             <div id="cartItems" class="p-4 overflow-y-auto no-scrollbar flex-grow"></div>
-            <div class="p-4 border-t">
-                <div class="flex justify-between items-center font-bold text-lg mb-4">
-                    <span>टोटल</span>
-                    <span id="cartTotal">₹0</span>
-                </div>
-                <button id="checkoutBtn" class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400">चेकआउट</button>
-            </div>
+            <div class="p-4 border-t"><div class="flex justify-between items-center font-bold text-lg mb-4"><span>टोटल</span><span id="cartTotal">₹0</span></div><button id="checkoutBtn" class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400">चेकआउट</button></div>
         </div>
     </div>
-
-    <!-- Checkout Modal -->
     <div id="checkoutModal" class="fixed inset-0 z-50 hidden modal-backdrop justify-center items-center">
         <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md m-4">
             <h2 class="text-2xl font-bold mb-4">ऑर्डर की जानकारी</h2>
-            <div class="space-y-3">
-                <input type="text" id="customerName" placeholder="पूरा नाम" class="w-full border p-2 rounded">
-                <textarea id="customerAddress" placeholder="पूरा पता" class="w-full border p-2 rounded" rows="3"></textarea>
-                <input type="tel" id="customerPhone" placeholder="फ़ोन नंबर" class="w-full border p-2 rounded">
-                <div>
-                    <label for="serviceArea" class="block text-sm font-medium text-gray-700">सर्विस एरिया चुनें</label>
-                    <select id="serviceArea" class="w-full border p-2 rounded mt-1"></select>
-                    <p class="text-sm text-gray-500 mt-1">हम सिर्फ इन्हीं एरिया में डिलीवरी करते हैं।</p>
-                </div>
-            </div>
-            <div class="mt-6 flex justify-end space-x-3">
-                <button id="cancelCheckoutBtn" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">कैंसिल</button>
-                <button id="placeOrderBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">ऑर्डर करें</button>
-            </div>
+            <div class="space-y-3"><input type="text" id="customerName" placeholder="पूरा नाम" class="w-full border p-2 rounded"><textarea id="customerAddress" placeholder="पूरा पता" class="w-full border p-2 rounded" rows="3"></textarea><input type="tel" id="customerPhone" placeholder="फ़ोन नंबर" class="w-full border p-2 rounded"><div><label for="serviceArea" class="block text-sm font-medium text-gray-700">सर्विस एरिया चुनें</label><select id="serviceArea" class="w-full border p-2 rounded mt-1"></select><p class="text-sm text-gray-500 mt-1">हम सिर्फ इन्हीं एरिया में डिलीवरी करते हैं।</p></div></div>
+            <div class="mt-6 flex justify-end space-x-3"><button id="cancelCheckoutBtn" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">कैंसिल</button><button id="placeOrderBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">ऑर्डर करें</button></div>
         </div>
     </div>
-
-    <!-- Edit Product Modal -->
     <div id="editProductModal" class="fixed inset-0 z-50 hidden modal-backdrop justify-center items-center">
         <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md m-4">
-            <h2 class="text-2xl font-bold mb-4">प्रोडक्ट एडिट करें</h2>
-            <input type="hidden" id="editProductId">
-            <div class="space-y-3">
-                <input type="text" id="editProductName" placeholder="प्रोडक्ट का नाम" class="w-full border p-2 rounded">
-                <input type="number" id="editProductPrice" placeholder="कीमत (₹)" class="w-full border p-2 rounded">
-                <input type="text" id="editProductImage" placeholder="इमेज URL" class="w-full border p-2 rounded">
-            </div>
-            <div class="mt-6 flex justify-end space-x-3">
-                <button id="cancelEditBtn" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">कैंसिल</button>
-                <button id="saveEditBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">बदलाव सेव करें</button>
-            </div>
+            <h2 class="text-2xl font-bold mb-4">प्रोडक्ट एडिट करें</h2><input type="hidden" id="editProductId">
+            <div class="space-y-3"><input type="text" id="editProductName" placeholder="प्रोडक्ट का नाम" class="w-full border p-2 rounded"><input type="number" id="editProductPrice" placeholder="कीमत (₹)" class="w-full border p-2 rounded"><input type="text" id="editProductImage" placeholder="इमेज URL" class="w-full border p-2 rounded"></div>
+            <div class="mt-6 flex justify-end space-x-3"><button id="cancelEditBtn" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">कैंसिल</button><button id="saveEditBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">बदलाव सेव करें</button></div>
         </div>
     </div>
-
-    <!-- Custom Alert Modal -->
     <div id="alertModal" class="fixed inset-0 z-50 hidden modal-backdrop justify-center items-center">
-        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm m-4 text-center">
-            <p id="alertMessage" class="mb-4 text-lg"></p>
-            <button id="closeAlertBtn" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">ठीक है</button>
-        </div>
+        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm m-4 text-center"><p id="alertMessage" class="mb-4 text-lg"></p><button id="closeAlertBtn" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">ठीक है</button></div>
     </div>
 
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js";
+        import { getFirestore, collection, getDocs, addDoc, doc, deleteDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
 
-        // --- DATABASE (Temporary - using variables) ---
-        let products = [
-            { id: 1, name: 'आटा (Aashirvaad)', price: 450, image: 'https://placehold.co/300x300/F3F4F6/333333?text=Atta' },
-            { id: 2, name: 'चावल (Basmati)', price: 120, image: 'https://placehold.co/300x300/F3F4F6/333333?text=Rice' },
-            { id: 3, name: 'चीनी (Sugar)', price: 45, image: 'https://placehold.co/300x300/F3F4F6/333333?text=Sugar' },
-            { id: 4, name: 'सरसों तेल', price: 180, image: 'https://placehold.co/300x300/F3F4F6/333333?text=Oil' },
-            { id: 5, name: 'दाल (Arhar)', price: 150, image: 'https://placehold.co/300x300/F3F4F6/333333?text=Daal' },
-            { id: 6, name: 'नमक (Tata Salt)', price: 25, image: 'https://placehold.co/300x300/F3F4F6/333333?text=Salt' },
-            { id: 7, name: 'बिस्कुट (Parle-G)', price: 10, image: 'https://placehold.co/300x300/F3F4F6/333333?text=Biscuit' },
-            { id: 8, name: 'साबुन (Lux)', price: 30, image: 'https://placehold.co/300x300/F3F4F6/333333?text=Soap' }
-        ];
+        // ****** यहाँ अपनी FIREBASE CONFIG पेस्ट करें ******
+        const firebaseConfig = {apiKey: "AIzaSyAyT0Ok3l8VHmfN-cuiRtug5r13P0Mcrzs",
+  authDomain: "sohail-general-store-552da.firebaseapp.com",
+  projectId: "sohail-general-store-552da",
+  storageBucket: "sohail-general-store-552da.firebasestorage.app",
+  messagingSenderId: "135855096413",
+  appId: "1:135855096413:web:7f37492fa4318d9ce903b4",
+  measurementId: "G-2JWXVH9TGB"
+            // apiKey: "...",
+            // authDomain: "...",
+            // projectId: "...",
+            // storageBucket: "...",
+            // messagingSenderId: "...",
+            // appId: "..."
+        };
+        // ***********************************************
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const productsCollection = collection(db, 'products');
+        const ordersCollection = collection(db, 'orders');
+
+        let localProducts = [];
+        let localOrders = [];
         let cart = [];
-        let orders = [];
         const serviceAreas = ["Lanka", "Assi Ghat", "BHU Campus", "Durga Kund", "Sigra"];
 
-        // --- ELEMENTS ---
-        const productGrid = document.getElementById('productGrid');
-        // ... (other elements are selected as needed)
-
-        // --- RENDERING FUNCTIONS ---
-        function renderProducts(productsToRender = products) {
+        function renderProducts(productsToRender = localProducts) {
+            const productGrid = document.getElementById('productGrid');
             productGrid.innerHTML = '';
-             if (productsToRender.length === 0) {
+            if (productsToRender.length === 0) {
                 document.getElementById('noResults').classList.remove('hidden');
             } else {
                 document.getElementById('noResults').classList.add('hidden');
             }
             productsToRender.forEach(product => {
-                const card = `
-                    <div class="bg-white rounded-lg shadow-md p-3 flex flex-col product-card">
-                        <img src="${product.image}" alt="${product.name}" class="w-full h-32 object-cover rounded-md mb-3">
-                        <h3 class="font-semibold text-gray-800 text-sm flex-grow">${product.name}</h3>
-                        <div class="flex justify-between items-center mt-3">
-                            <span class="font-bold text-lg">₹${product.price}</span>
-                            <button data-id="${product.id}" class="addToCartBtn bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600">Add</button>
-                        </div>
-                    </div>
-                `;
+                const card = `<div class="bg-white rounded-lg shadow-md p-3 flex flex-col product-card"><img src="${product.image}" alt="${product.name}" class="w-full h-32 object-cover rounded-md mb-3"><h3 class="font-semibold text-gray-800 text-sm flex-grow">${product.name}</h3><div class="flex justify-between items-center mt-3"><span class="font-bold text-lg">₹${product.price}</span><button data-id="${product.id}" class="addToCartBtn bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600">Add</button></div></div>`;
                 productGrid.innerHTML += card;
             });
         }
         
         function renderAdminProducts() {
             const adminProductList = document.getElementById('adminProductList');
-            adminProductList.innerHTML = '';
-            if (products.length === 0) {
+            adminProductList.innerHTML = '<div class="loader mx-auto"></div>'; // Show loader
+            if (localProducts.length === 0) {
                  adminProductList.innerHTML = '<p class="text-center text-gray-500">कोई प्रोडक्ट नहीं है।</p>';
                  return;
             }
-            products.forEach(product => {
-                const itemHTML = `
-                    <div class="bg-gray-50 p-2 rounded-md flex justify-between items-center">
-                        <div>
-                            <p class="font-semibold">${product.name}</p>
-                            <p class="text-sm text-gray-600">₹${product.price}</p>
-                        </div>
-                        <div class="space-x-2">
-                            <button data-id="${product.id}" class="edit-btn text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></button>
-                            <button data-id="${product.id}" class="delete-btn text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                `;
+            adminProductList.innerHTML = '';
+            localProducts.forEach(product => {
+                const itemHTML = `<div class="bg-gray-50 p-2 rounded-md flex justify-between items-center"><div><p class="font-semibold">${product.name}</p><p class="text-sm text-gray-600">₹${product.price}</p></div><div class="space-x-2"><button data-id="${product.id}" class="edit-btn text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></button><button data-id="${product.id}" class="delete-btn text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button></div></div>`;
                 adminProductList.innerHTML += itemHTML;
             });
-        }
-
-        function updateCart() {
-            const cartItems = document.getElementById('cartItems');
-            const cartCount = document.getElementById('cartCount');
-            const cartTotal = document.getElementById('cartTotal');
-            cartItems.innerHTML = '';
-            let total = 0;
-            if (cart.length === 0) {
-                cartItems.innerHTML = '<p class="text-center text-gray-500">आपका कार्ट खाली है।</p>';
-                document.getElementById('checkoutBtn').disabled = true;
-            } else {
-                 document.getElementById('checkoutBtn').disabled = false;
-                cart.forEach(item => {
-                    total += item.price * item.quantity;
-                    const itemHTML = `
-                        <div class="flex justify-between items-center mb-3">
-                            <div>
-                                <p class="font-semibold">${item.name}</p>
-                                <p class="text-sm text-gray-600">₹${item.price} x ${item.quantity}</p>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <button data-id="${item.id}" class="decreaseQtyBtn bg-gray-200 px-2 rounded">-</button>
-                                <span>${item.quantity}</span>
-                                <button data-id="${item.id}" class="increaseQtyBtn bg-gray-200 px-2 rounded">+</button>
-                                <button data-id="${item.id}" class="removeFromCartBtn text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
-                            </div>
-                        </div>
-                    `;
-                    cartItems.innerHTML += itemHTML;
-                });
-            }
-            cartCount.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
-            cartTotal.textContent = `₹${total}`;
         }
         
         function renderOrders() {
             const orderList = document.getElementById('orderList');
-            orderList.innerHTML = '';
-            if(orders.length === 0){
+             orderList.innerHTML = '<div class="loader mx-auto"></div>'; // Show loader
+            if(localOrders.length === 0){
                 orderList.innerHTML = '<p class="text-center text-gray-500">अभी कोई ऑर्डर नहीं है।</p>';
                 return;
             }
-            orders.slice().reverse().forEach(order => {
-                const orderCard = `
-                    <div class="bg-white p-4 rounded-lg shadow">
-                        <p class="font-bold">Order #${order.id}</p>
-                        <p><strong>ग्राहक:</strong> ${order.customer.name}</p>
-                        <p><strong>पता:</strong> ${order.customer.address}, ${order.customer.area}</p>
-                        <p><strong>फ़ोन:</strong> ${order.customer.phone}</p>
-                        <hr class="my-2">
-                        <ul class="list-disc pl-5">
-                            ${order.items.map(item => `<li>${item.name} (x${item.quantity}) - ₹${item.price * item.quantity}</li>`).join('')}
-                        </ul>
-                        <p class="font-bold mt-2">Total: ₹${order.total}</p>
-                        <div class="mt-3">
-                            <label class="font-semibold">Status:</label>
-                            <select data-id="${order.id}" class="orderStatusSelect border p-1 rounded">
-                                <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                                <option value="Preparing" ${order.status === 'Preparing' ? 'selected' : ''}>Preparing</option>
-                                <option value="Out for Delivery" ${order.status === 'Out for Delivery' ? 'selected' : ''}>Out for Delivery</option>
-                                <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
-                                <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
-                            </select>
-                        </div>
-                    </div>
-                `;
+            orderList.innerHTML = '';
+            localOrders.slice().reverse().forEach(order => {
+                const orderCard = `<div class="bg-white p-4 rounded-lg shadow"><p class="font-bold">Order #${order.id.substring(0,6)}</p><p><strong>ग्राहक:</strong> ${order.customer.name}</p><p><strong>पता:</strong> ${order.customer.address}, ${order.customer.area}</p><p><strong>फ़ोन:</strong> ${order.customer.phone}</p><hr class="my-2"><ul class="list-disc pl-5">${order.items.map(item => `<li>${item.name} (x${item.quantity}) - ₹${item.price * item.quantity}</li>`).join('')}</ul><p class="font-bold mt-2">Total: ₹${order.total}</p><div class="mt-3"><label class="font-semibold">Status:</label><select data-id="${order.id}" class="orderStatusSelect border p-1 rounded"><option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option><option value="Preparing" ${order.status === 'Preparing' ? 'selected' : ''}>Preparing</option><option value="Out for Delivery" ${order.status === 'Out for Delivery' ? 'selected' : ''}>Out for Delivery</option><option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option><option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div></div>`;
                 orderList.innerHTML += orderCard;
             });
         }
         
-        // --- CUSTOM ALERT ---
-        function showAlert(message) {
-            document.getElementById('alertMessage').textContent = message;
-            document.getElementById('alertModal').style.display = 'flex';
-        }
-        document.getElementById('closeAlertBtn').addEventListener('click', () => {
-             document.getElementById('alertModal').style.display = 'none';
-        });
-
+        function showAlert(message) { document.getElementById('alertMessage').textContent = message; document.getElementById('alertModal').style.display = 'flex'; }
+        
         // --- EVENT LISTENERS ---
-        productGrid.addEventListener('click', e => {
-            if (e.target.closest('.addToCartBtn')) {
-                const productId = parseInt(e.target.closest('.addToCartBtn').dataset.id);
-                const product = products.find(p => p.id === productId);
-                const cartItem = cart.find(item => item.id === productId);
-                if (cartItem) {
-                    cartItem.quantity++;
-                } else {
-                    cart.push({ ...product, quantity: 1 });
-                }
-                updateCart();
-                showAlert(`${product.name} कार्ट में जोड़ा गया!`);
-            }
-        });
-
-        document.getElementById('cartItems').addEventListener('click', e => {
-            const button = e.target.closest('button');
-            if (!button) return;
-            const productId = parseInt(button.dataset.id);
-            const cartItem = cart.find(item => item.id === productId);
-            if (!cartItem) return;
-            if (button.classList.contains('increaseQtyBtn')) {
-                cartItem.quantity++;
-            } else if (button.classList.contains('decreaseQtyBtn')) {
-                if (cartItem.quantity > 1) {
-                    cartItem.quantity--;
-                } else {
-                    cart = cart.filter(item => item.id !== productId);
-                }
-            } else if (button.classList.contains('removeFromCartBtn')) {
-                cart = cart.filter(item => item.id !== productId);
-            }
-            updateCart();
-        });
-
-        document.getElementById('cartButton').addEventListener('click', () => {
-            updateCart();
-            document.getElementById('cartModal').style.display = 'flex';
-        });
-        document.getElementById('closeCartBtn').addEventListener('click', () => document.getElementById('cartModal').style.display = 'none');
-        document.getElementById('checkoutBtn').addEventListener('click', () => {
-            document.getElementById('cartModal').style.display = 'none';
-            document.getElementById('checkoutModal').style.display = 'flex';
-        });
-        document.getElementById('cancelCheckoutBtn').addEventListener('click', () => document.getElementById('checkoutModal').style.display = 'none');
-        
-        document.getElementById('placeOrderBtn').addEventListener('click', () => {
-            const name = document.getElementById('customerName').value;
-            const address = document.getElementById('customerAddress').value;
-            const phone = document.getElementById('customerPhone').value;
-            const area = document.getElementById('serviceArea').value;
-
-            if(!name || !address || !phone || !area) {
-                showAlert('कृपया सभी जानकारी भरें।');
-                return;
-            }
-
-            const newOrder = {
-                id: Date.now(),
-                customer: { name, address, phone, area },
-                items: [...cart],
-                total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                status: 'Pending'
-            };
-            orders.push(newOrder);
-            
-            cart = [];
-            updateCart();
-            document.getElementById('checkoutModal').style.display = 'none';
-            showAlert('आपका ऑर्डर सफलतापूर्वक हो गया है!');
-            renderOrders();
-        });
-
-        document.getElementById('searchInput').addEventListener('input', e => {
-            const searchTerm = e.target.value.toLowerCase();
-            const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm));
-            renderProducts(filteredProducts);
-        });
-
-        // --- ADMIN LOGIC ---
-        document.getElementById('adminAccessBtn').addEventListener('click', () => {
-            document.getElementById('customerView').classList.add('hidden');
-            document.getElementById('adminView').classList.remove('hidden');
-        });
-        
-        document.getElementById('customerViewBtn').addEventListener('click', () => {
-            document.getElementById('adminView').classList.add('hidden');
-            document.getElementById('customerView').classList.remove('hidden');
-        });
-        
-        document.getElementById('adminLoginBtn').addEventListener('click', () => {
-            const pass = document.getElementById('adminPassword').value;
-            if(pass === 'sohail123') {
-                document.getElementById('adminLogin').classList.add('hidden');
-                document.getElementById('adminDashboard').classList.remove('hidden');
-                renderOrders();
-                renderAdminProducts(); // Render products for the first time
-            } else {
-                 document.getElementById('loginError').classList.remove('hidden');
-                 setTimeout(() => document.getElementById('loginError').classList.add('hidden'), 3000);
-            }
-        });
-        
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.classList.remove('bg-blue-500', 'text-white');
-                    b.classList.add('bg-gray-200', 'text-black');
-                });
-                btn.classList.add('bg-blue-500', 'text-white');
-                btn.classList.remove('bg-gray-200', 'text-black');
-                
-                document.getElementById('ordersTab').classList.add('hidden');
-                document.getElementById('productsTab').classList.add('hidden');
-                
-                document.getElementById(btn.dataset.tab + 'Tab').classList.remove('hidden');
-            });
-        });
-
-        document.getElementById('addProductBtn').addEventListener('click', () => {
+        document.getElementById('addProductBtn').addEventListener('click', async () => {
             const name = document.getElementById('newProductName').value;
             const price = parseFloat(document.getElementById('newProductPrice').value);
             const image = document.getElementById('newProductImage').value;
-
-            if(!name || !price || !image) {
-                showAlert('कृपया प्रोडक्ट की सभी जानकारी भरें।');
-                return;
-            }
-
-            const newProduct = {
-                id: products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1,
-                name, price, image
-            };
-            products.push(newProduct);
-            renderProducts();
-            renderAdminProducts();
-            showAlert('नया प्रोडक्ट सफलतापूर्वक जोड़ा गया!');
-            document.getElementById('newProductName').value = '';
-            document.getElementById('newProductPrice').value = '';
-            document.getElementById('newProductImage').value = '';
-        });
-
-        document.getElementById('orderList').addEventListener('change', e => {
-            if(e.target.classList.contains('orderStatusSelect')) {
-                const orderId = parseInt(e.target.dataset.id);
-                const newStatus = e.target.value;
-                const order = orders.find(o => o.id === orderId);
-                if(order) {
-                    order.status = newStatus;
-                    showAlert(`Order #${orderId} का स्टेटस '${newStatus}' में बदल दिया गया है।`);
-                }
+            if(!name || !price || !image) { showAlert('कृपया प्रोडक्ट की सभी जानकारी भरें।'); return; }
+            try {
+                await addDoc(productsCollection, { name, price, image });
+                showAlert('नया प्रोडक्ट सफलतापूर्वक जोड़ा गया!');
+                document.getElementById('newProductName').value = '';
+                document.getElementById('newProductPrice').value = '';
+                document.getElementById('newProductImage').value = '';
+            } catch (e) {
+                console.error("Error adding document: ", e); showAlert('प्रोडक्ट जोड़ने में त्रुटि हुई।');
             }
         });
-        
-        // --- NEW EDIT/DELETE LOGIC ---
-        const adminProductList = document.getElementById('adminProductList');
-        const editModal = document.getElementById('editProductModal');
 
-        adminProductList.addEventListener('click', (e) => {
+        document.getElementById('adminProductList').addEventListener('click', (e) => {
             const editBtn = e.target.closest('.edit-btn');
             const deleteBtn = e.target.closest('.delete-btn');
-
             if (editBtn) {
-                const productId = parseInt(editBtn.dataset.id);
-                const product = products.find(p => p.id === productId);
-                
+                const productId = editBtn.dataset.id;
+                const product = localProducts.find(p => p.id === productId);
                 document.getElementById('editProductId').value = product.id;
                 document.getElementById('editProductName').value = product.name;
                 document.getElementById('editProductPrice').value = product.price;
                 document.getElementById('editProductImage').value = product.image;
-                
-                editModal.style.display = 'flex';
+                document.getElementById('editProductModal').style.display = 'flex';
             }
-
             if (deleteBtn) {
-                const productId = parseInt(deleteBtn.dataset.id);
-                // In a real app, you'd use a custom confirmation modal.
-                // For simplicity, we use the browser's confirm.
-                // Note: confirm() may not work in all sandboxed environments.
-                // A better approach would be a custom confirmation dialog.
+                const productId = deleteBtn.dataset.id;
                 if (confirm('क्या आप वाकई इस प्रोडक्ट को हटाना चाहते हैं?')) {
-                    products = products.filter(p => p.id !== productId);
-                    renderProducts();
-                    renderAdminProducts();
-                    showAlert('प्रोडक्ट हटा दिया गया है।');
+                    deleteDoc(doc(db, 'products', productId))
+                        .then(() => showAlert('प्रोडक्ट हटा दिया गया है।'))
+                        .catch(() => showAlert('प्रोडक्ट हटाने में त्रुटि हुई।'));
                 }
             }
         });
 
-        document.getElementById('cancelEditBtn').addEventListener('click', () => {
-            editModal.style.display = 'none';
-        });
-
-        document.getElementById('saveEditBtn').addEventListener('click', () => {
-            const id = parseInt(document.getElementById('editProductId').value);
+        document.getElementById('saveEditBtn').addEventListener('click', async () => {
+            const id = document.getElementById('editProductId').value;
             const name = document.getElementById('editProductName').value;
             const price = parseFloat(document.getElementById('editProductPrice').value);
             const image = document.getElementById('editProductImage').value;
-            
-            if (!name || !price || !image) {
-                showAlert('कृपया सभी जानकारी भरें।');
-                return;
-            }
+            if (!name || !price || !image) { showAlert('कृपया सभी जानकारी भरें।'); return; }
+            const productRef = doc(db, 'products', id);
+            await updateDoc(productRef, { name, price, image });
+            showAlert('प्रोडक्ट सफलतापूर्वक अपडेट हो गया है।');
+            document.getElementById('editProductModal').style.display = 'none';
+        });
 
-            const productIndex = products.findIndex(p => p.id === id);
-            if (productIndex !== -1) {
-                products[productIndex] = { id, name, price, image };
-                renderProducts();
-                renderAdminProducts();
-                editModal.style.display = 'none';
-                showAlert('प्रोडक्ट सफलतापूर्वक अपडेट हो गया है।');
+        document.getElementById('placeOrderBtn').addEventListener('click', async () => {
+            const name = document.getElementById('customerName').value;
+            const address = document.getElementById('customerAddress').value;
+            const phone = document.getElementById('customerPhone').value;
+            const area = document.getElementById('serviceArea').value;
+            if(!name || !address || !phone || !area) { showAlert('कृपया सभी जानकारी भरें।'); return; }
+            const newOrder = {
+                customer: { name, address, phone, area },
+                items: [...cart],
+                total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+                status: 'Pending',
+                createdAt: new Date()
+            };
+             try {
+                await addDoc(ordersCollection, newOrder);
+                cart = [];
+                updateCart();
+                document.getElementById('checkoutModal').style.display = 'none';
+                showAlert('आपका ऑर्डर सफलतापूर्वक हो गया है!');
+            } catch (e) {
+                 showAlert('ऑर्डर करने में त्रुटि हुई।');
+            }
+        });
+        
+        document.getElementById('orderList').addEventListener('change', e => {
+            if(e.target.classList.contains('orderStatusSelect')) {
+                const orderId = e.target.dataset.id;
+                const newStatus = e.target.value;
+                const orderRef = doc(db, 'orders', orderId);
+                updateDoc(orderRef, { status: newStatus })
+                    .then(() => showAlert(`ऑर्डर का स्टेटस '${newStatus}' में बदल दिया गया है।`))
+                    .catch(() => showAlert('स्टेटस बदलने में त्रुटि हुई।'));
             }
         });
 
-        function populateServiceAreas() {
-            const select = document.getElementById('serviceArea');
-            select.innerHTML = ''; // Clear previous options
-            serviceAreas.forEach(area => {
-                const option = document.createElement('option');
-                option.value = area;
-                option.textContent = area;
-                select.appendChild(option);
-            });
-        }
+        // --- REALTIME LISTENERS ---
+        onSnapshot(productsCollection, (snapshot) => {
+            localProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderProducts();
+            renderAdminProducts();
+        });
         
-        // --- INITIALIZATION ---
-        renderProducts();
-        populateServiceAreas();
-    });
+         onSnapshot(ordersCollection, (snapshot) => {
+            localOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderOrders();
+        });
+
+
+        // --- UI Listeners (No database interaction) ---
+        function updateCart(){let t=document.getElementById('cartItems'),e=document.getElementById('cartCount'),a=document.getElementById('cartTotal'),n=0;t.innerHTML='',cart.length===0?(t.innerHTML='<p class="text-center text-gray-500">आपका कार्ट खाली है।</p>',document.getElementById('checkoutBtn').disabled=!0):(document.getElementById('checkoutBtn').disabled=!1,cart.forEach(e=>{n+=e.price*e.quantity,t.innerHTML+=`<div class="flex justify-between items-center mb-3"><div><p class="font-semibold">${e.name}</p><p class="text-sm text-gray-600">₹${e.price} x ${e.quantity}</p></div><div class="flex items-center space-x-2"><button data-id="${e.id}" class="decreaseQtyBtn bg-gray-200 px-2 rounded">-</button><span>${e.quantity}</span><button data-id="${e.id}" class="increaseQtyBtn bg-gray-200 px-2 rounded">+</button><button data-id="${e.id}" class="removeFromCartBtn text-red-500"><i class="fa-solid fa-trash"></i></button></div></div>`})),e.textContent=cart.reduce((t,e)=>t+e.quantity,0),a.textContent=`₹${n}`}
+        document.getElementById('productGrid').addEventListener('click',t=>{if(t.target.closest('.addToCartBtn')){let e=t.target.closest('.addToCartBtn').dataset.id,a=localProducts.find(t=>t.id===e),n=cart.find(t=>t.id===e);n?n.quantity++:cart.push({...a,quantity:1}),updateCart(),showAlert(`${a.name} कार्ट में जोड़ा गया!`)}});
+        document.getElementById('cartItems').addEventListener('click',t=>{let e=t.target.closest('button');if(!e)return;let a=e.dataset.id,n=cart.find(t=>t.id===a);n&&(e.classList.contains('increaseQtyBtn')?n.quantity++:e.classList.contains('decreaseQtyBtn')?n.quantity>1?n.quantity--:cart=cart.filter(t=>t.id!==a):e.classList.contains('removeFromCartBtn')&&(cart=cart.filter(t=>t.id!==a)),updateCart())});
+        document.getElementById('cartButton').addEventListener('click',()=>{updateCart(),document.getElementById('cartModal').style.display='flex'});
+        document.getElementById('closeCartBtn').addEventListener('click',()=>document.getElementById('cartModal').style.display='none');
+        document.getElementById('checkoutBtn').addEventListener('click',()=>{document.getElementById('cartModal').style.display='none',document.getElementById('checkoutModal').style.display='flex'});
+        document.getElementById('cancelCheckoutBtn').addEventListener('click',()=>document.getElementById('checkoutModal').style.display='none');
+        document.getElementById('closeAlertBtn').addEventListener('click',()=>{document.getElementById('alertModal').style.display='none'});
+        document.getElementById('adminAccessBtn').addEventListener('click',()=>{document.getElementById('customerView').classList.add('hidden'),document.getElementById('adminView').classList.remove('hidden')});
+        document.getElementById('customerViewBtn').addEventListener('click',()=>{document.getElementById('adminView').classList.add('hidden'),document.getElementById('customerView').classList.remove('hidden')});
+        document.getElementById('adminLoginBtn').addEventListener('click',()=>{let t=document.getElementById('adminPassword').value;t==='sohail123'?(document.getElementById('adminLogin').classList.add('hidden'),document.getElementById('adminDashboard').classList.remove('hidden')): (document.getElementById('loginError').classList.remove('hidden'),setTimeout(()=>document.getElementById('loginError').classList.add('hidden'),3e3))});
+        document.querySelectorAll('.tab-btn').forEach(t=>{t.addEventListener('click',()=>{document.querySelectorAll('.tab-btn').forEach(t=>{t.classList.remove('bg-blue-500','text-white'),t.classList.add('bg-gray-200','text-black')}),t.classList.add('bg-blue-500','text-white'),t.classList.remove('bg-gray-200','text-black'),document.getElementById('ordersTab').classList.add('hidden'),document.getElementById('productsTab').classList.add('hidden'),document.getElementById(t.dataset.tab+'Tab').classList.remove('hidden')})});
+        document.getElementById('cancelEditBtn').addEventListener('click',()=>document.getElementById('editProductModal').style.display='none');
+        let serviceAreaSelect=document.getElementById('serviceArea');serviceAreas.forEach(t=>{let e=document.createElement('option');e.value=t,e.textContent=t,serviceAreaSelect.appendChild(e)});
+        document.getElementById('searchInput').addEventListener('input',t=>{let e=t.target.value.toLowerCase(),a=localProducts.filter(t=>t.name.toLowerCase().includes(e));renderProducts(a)});
+        
+        // Initial load
+        document.getElementById('loadingSpinner').style.display = 'flex';
+        document.getElementById('customerView').classList.add('hidden');
     </script>
 </body>
 </html>
