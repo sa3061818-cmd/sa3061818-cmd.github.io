@@ -33,7 +33,13 @@ const generateUserId = () => {
     }
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
-
+const firebaseConfig = {
+    apiKey: "AIzaSy...",
+    authDomain: "my-project-1234.firebaseapp.com",
+    projectId: "my-project-1234",
+    // ... बाकी विवरण
+};
+4.  इस `firebaseConfig` ऑब्जेक्ट से सभी की वैल्यूज़ (`apiKey`, `authDomain`, `projectId`, आदि) को कॉपी करें और ऊपर दिए गए `__firebase_config` ऑब्जेक्ट में पेस्ट कर दें।
 // ----------------------------------------------------------------------
 // 2. Global State and Context
 // ----------------------------------------------------------------------
