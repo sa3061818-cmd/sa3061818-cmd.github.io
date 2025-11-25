@@ -1,326 +1,828 @@
-<!DOCTYPE html>
-<html lang="hi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sohail General Store</title>
-    <!-- Tailwind CSS for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .product-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
-        .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-        .modal-backdrop { background-color: rgba(0,0,0,0.5); transition: opacity 0.3s ease; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+    getAuth, 
+    signInAnonymously, 
+    signInWithCustomToken, 
+    onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+    getFirestore, 
+    collection, 
+    doc, 
+    addDoc, 
+    setDoc, 
+    deleteDoc, 
+    onSnapshot, 
+    query, 
+    serverTimestamp,
+    setLogLevel
+} from 'firebase/firestore';
+
+// ----------------------------------------------------------------------
+// 1. Firebase Configuration and Initialization
+// ----------------------------------------------------------------------
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+// Utility function to generate a unique ID for non-authenticated users if needed
+const generateUserId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
+
+// ----------------------------------------------------------------------
+// 2. Global State and Context
+// ----------------------------------------------------------------------
+
+const AppContext = React.createContext({
+    db: null,
+    userId: null,
+    isAuthReady: false,
+    error: null,
+});
+
+const useFirebase = () => React.useContext(AppContext);
+
+// Component to handle the main Firebase initialization and context
+const FirebaseProvider = ({ children }) => {
+    const [db, setDb] = useState(null);
+    const [userId, setUserId] = useState(null);
+    const [isAuthReady, setIsAuthReady] = useState(false);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        setLogLevel('Debug'); 
+
+        if (!firebaseConfig) {
+            setError("Firebase कॉन्फ़िगरेशन नहीं मिला। ऐप शुरू नहीं किया जा सकता।");
+            return;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body class="bg-gray-100">
 
-    <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="fixed inset-0 z-50 flex items-center justify-center bg-white">
-        <div class="loader"></div>
-    </div>
+        try {
+            const app = initializeApp(firebaseConfig);
+            const authInstance = getAuth(app);
+            const dbInstance = getFirestore(app);
 
-    <!-- Customer View -->
-    <div id="customerView" class="pb-24 hidden">
-        <header class="bg-white shadow-md sticky top-0 z-40">
-            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-800">Sohail General Store</h1>
-                <div id="cartButton" class="relative cursor-pointer">
-                    <i class="fa-solid fa-cart-shopping text-2xl text-gray-600"></i>
-                    <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                </div>
-            </div>
-            <div class="container mx-auto px-4 pb-3">
-                 <input type="text" id="searchInput" placeholder="प्रोडक्ट खोजें..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-        </header>
-        <main class="container mx-auto p-4">
-            <div id="productGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                <!-- Products will be dynamically inserted here from Firebase -->
-            </div>
-             <p id="noResults" class="text-center text-gray-500 mt-8 hidden">कोई प्रोडक्ट नहीं मिला।</p>
-        </main>
-        <div class="fixed bottom-4 right-4 z-50 flex flex-col items-center space-y-3">
-            <a href="https://wa.me/919555149823?text=नमस्ते,%20मुझे%20आपके%20स्टोर%20से%20कुछ%20जानकारी%20चाहिए।" target="_blank" class="bg-green-500 text-white rounded-full h-14 w-14 flex items-center justify-center shadow-lg hover:bg-green-600">
-                <i class="fab fa-whatsapp text-3xl"></i>
-            </a>
-            <a href="tel:+919555149823" class="bg-blue-500 text-white rounded-full h-14 w-14 flex items-center justify-center shadow-lg hover:bg-blue-600">
-                <i class="fa-solid fa-phone text-2xl"></i>
-            </a>
-        </div>
-        <div class="fixed bottom-4 left-4 z-50">
-             <button id="adminAccessBtn" class="bg-gray-700 text-white px-3 py-2 rounded-lg shadow-lg hover:bg-gray-800 text-sm">Admin Panel</button>
-        </div>
-    </div>
+            setDb(dbInstance);
 
-    <!-- Admin View -->
-    <div id="adminView" class="hidden">
-        <div id="adminLogin" class="min-h-screen flex items-center justify-center bg-gray-200">
-            <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
-                <h2 class="text-2xl font-bold mb-6 text-center">Admin Login</h2>
-                <input type="password" id="adminPassword" placeholder="Password" class="w-full px-4 py-2 border rounded-lg mb-4">
-                <button id="adminLoginBtn" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">Login</button>
-                <p id="loginError" class="text-red-500 text-sm mt-2 text-center hidden">गलत पासवर्ड!</p>
-            </div>
-        </div>
-        <div id="adminDashboard" class="hidden">
-            <header class="bg-gray-800 text-white p-4 flex justify-between items-center">
-                <h1 class="text-xl font-bold">Admin Dashboard</h1>
-                <button id="customerViewBtn" class="bg-gray-600 px-3 py-1 rounded hover:bg-gray-500">ग्राहक व्यू देखें</button>
-            </header>
-            <div class="flex border-b">
-                <button data-tab="orders" class="tab-btn flex-1 p-4 bg-gray-200 text-black font-semibold">ऑर्डर देखें</button>
-                <button data-tab="products" class="tab-btn flex-1 p-4 bg-blue-500 text-white font-semibold">प्रोडक्ट मैनेज करें</button>
-            </div>
-            <div id="ordersTab" class="p-4 hidden"><h2 class="text-2xl font-bold mb-4">आए हुए ऑर्डर</h2><div id="orderList" class="space-y-4"></div></div>
-            <div id="productsTab" class="p-4">
-                <h2 class="text-2xl font-bold mb-4">प्रोडक्ट मैनेज करें</h2>
-                <div class="bg-white p-4 rounded-lg shadow-md mb-6">
-                    <h3 class="text-lg font-semibold mb-2">नया प्रोडक्ट जोड़ें</h3>
-                    <input type="text" id="newProductName" placeholder="प्रोडक्ट का नाम" class="w-full border p-2 mb-2 rounded">
-                    <input type="number" id="newProductPrice" placeholder="कीमत (₹)" class="w-full border p-2 mb-2 rounded">
-                    <input type="text" id="newProductImage" placeholder="इमेज URL" class="w-full border p-2 mb-2 rounded">
-                    <button id="addProductBtn" class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">प्रोडक्ट जोड़ें</button>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold mb-2">मौजूदा प्रोडक्ट्स</h3>
-                    <div id="adminProductList" class="space-y-2"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modals -->
-    <div id="cartModal" class="fixed inset-0 z-50 hidden modal-backdrop items-end sm:items-center sm:justify-center">
-        <div class="bg-white w-full sm:max-w-lg rounded-t-lg sm:rounded-lg shadow-xl flex flex-col" style="max-height: 90vh;">
-            <div class="flex justify-between items-center p-4 border-b"><h2 class="text-xl font-bold">आपका कार्ट</h2><button id="closeCartBtn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button></div>
-            <div id="cartItems" class="p-4 overflow-y-auto no-scrollbar flex-grow"></div>
-            <div class="p-4 border-t"><div class="flex justify-between items-center font-bold text-lg mb-4"><span>टोटल</span><span id="cartTotal">₹0</span></div><button id="checkoutBtn" class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400">चेकआउट</button></div>
-        </div>
-    </div>
-    <div id="checkoutModal" class="fixed inset-0 z-50 hidden modal-backdrop justify-center items-center">
-        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md m-4">
-            <h2 class="text-2xl font-bold mb-4">ऑर्डर की जानकारी</h2>
-            <div class="space-y-3"><input type="text" id="customerName" placeholder="पूरा नाम" class="w-full border p-2 rounded"><textarea id="customerAddress" placeholder="पूरा पता" class="w-full border p-2 rounded" rows="3"></textarea><input type="tel" id="customerPhone" placeholder="फ़ोन नंबर" class="w-full border p-2 rounded"><div><label for="serviceArea" class="block text-sm font-medium text-gray-700">सर्विस एरिया चुनें</label><select id="serviceArea" class="w-full border p-2 rounded mt-1"></select><p class="text-sm text-gray-500 mt-1">हम सिर्फ इन्हीं एरिया में डिलीवरी करते हैं।</p></div></div>
-            <div class="mt-6 flex justify-end space-x-3"><button id="cancelCheckoutBtn" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">कैंसिल</button><button id="placeOrderBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">ऑर्डर करें</button></div>
-        </div>
-    </div>
-    <div id="editProductModal" class="fixed inset-0 z-50 hidden modal-backdrop justify-center items-center">
-        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md m-4">
-            <h2 class="text-2xl font-bold mb-4">प्रोडक्ट एडिट करें</h2><input type="hidden" id="editProductId">
-            <div class="space-y-3"><input type="text" id="editProductName" placeholder="प्रोडक्ट का नाम" class="w-full border p-2 rounded"><input type="number" id="editProductPrice" placeholder="कीमत (₹)" class="w-full border p-2 rounded"><input type="text" id="editProductImage" placeholder="इमेज URL" class="w-full border p-2 rounded"></div>
-            <div class="mt-6 flex justify-end space-x-3"><button id="cancelEditBtn" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">कैंसिल</button><button id="saveEditBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">बदलाव सेव करें</button></div>
-        </div>
-    </div>
-    <div id="alertModal" class="fixed inset-0 z-50 hidden modal-backdrop justify-center items-center">
-        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm m-4 text-center"><p id="alertMessage" class="mb-4 text-lg"></p><button id="closeAlertBtn" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">ठीक है</button></div>
-    </div>
-
-    <!-- Firebase SDKs -->
-    <script type="module">
-        // Import the functions you need from the SDKs you need
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js";
-        import { getFirestore, collection, getDocs, addDoc, doc, deleteDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
-
-        // ****** यहाँ अपनी FIREBASE CONFIG पेस्ट करें ******
-        const firebaseConfig = {
-        apiKey: "AIzaSyAyT0Ok3l8VHmfN-cuiRtug5r13P0Mcrzs"
-  authDomain: "sohail-general-store-552da.firebaseapp.com"
-  projectId: "sohail-general-store-552da"
-  storageBucket: "sohail-general-store-552da.firebasestorage.app"
-  messagingSenderId: "135855096413"
-  appId: "1:135855096413:web:7f37492fa4318d9ce903b4"
-  measurementId: "G-2JWXVH9TGB"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const productsCollection = collection(db, 'products');
-        const ordersCollection = collection(db, 'orders');
-
-        let localProducts = [];
-        let localOrders = [];
-        let cart = [];
-        const serviceAreas = ["Lanka", "Assi Ghat", "BHU Campus", "Durga Kund", "Sigra"];
-
-        function renderProducts(productsToRender = localProducts) {
-            const productGrid = document.getElementById('productGrid');
-            productGrid.innerHTML = '';
-            if (productsToRender.length === 0) {
-                document.getElementById('noResults').classList.remove('hidden');
-            } else {
-                document.getElementById('noResults').classList.add('hidden');
-            }
-            productsToRender.forEach(product => {
-                const card = `<div class="bg-white rounded-lg shadow-md p-3 flex flex-col product-card"><img src="${product.image}" alt="${product.name}" class="w-full h-32 object-cover rounded-md mb-3"><h3 class="font-semibold text-gray-800 text-sm flex-grow">${product.name}</h3><div class="flex justify-between items-center mt-3"><span class="font-bold text-lg">₹${product.price}</span><button data-id="${product.id}" class="addToCartBtn bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600">Add</button></div></div>`;
-                productGrid.innerHTML += card;
-            });
-        }
-        
-        function renderAdminProducts() {
-            const adminProductList = document.getElementById('adminProductList');
-            adminProductList.innerHTML = '<div class="loader mx-auto"></div>'; // Show loader
-            if (localProducts.length === 0) {
-                 adminProductList.innerHTML = '<p class="text-center text-gray-500">कोई प्रोडक्ट नहीं है।</p>';
-                 return;
-            }
-            adminProductList.innerHTML = '';
-            localProducts.forEach(product => {
-                const itemHTML = `<div class="bg-gray-50 p-2 rounded-md flex justify-between items-center"><div><p class="font-semibold">${product.name}</p><p class="text-sm text-gray-600">₹${product.price}</p></div><div class="space-x-2"><button data-id="${product.id}" class="edit-btn text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></button><button data-id="${product.id}" class="delete-btn text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button></div></div>`;
-                adminProductList.innerHTML += itemHTML;
-            });
-        }
-        
-        function renderOrders() {
-            const orderList = document.getElementById('orderList');
-             orderList.innerHTML = '<div class="loader mx-auto"></div>'; // Show loader
-            if(localOrders.length === 0){
-                orderList.innerHTML = '<p class="text-center text-gray-500">अभी कोई ऑर्डर नहीं है।</p>';
-                return;
-            }
-            orderList.innerHTML = '';
-            localOrders.slice().reverse().forEach(order => {
-                const orderCard = `<div class="bg-white p-4 rounded-lg shadow"><p class="font-bold">Order #${order.id.substring(0,6)}</p><p><strong>ग्राहक:</strong> ${order.customer.name}</p><p><strong>पता:</strong> ${order.customer.address}, ${order.customer.area}</p><p><strong>फ़ोन:</strong> ${order.customer.phone}</p><hr class="my-2"><ul class="list-disc pl-5">${order.items.map(item => `<li>${item.name} (x${item.quantity}) - ₹${item.price * item.quantity}</li>`).join('')}</ul><p class="font-bold mt-2">Total: ₹${order.total}</p><div class="mt-3"><label class="font-semibold">Status:</label><select data-id="${order.id}" class="orderStatusSelect border p-1 rounded"><option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option><option value="Preparing" ${order.status === 'Preparing' ? 'selected' : ''}>Preparing</option><option value="Out for Delivery" ${order.status === 'Out for Delivery' ? 'selected' : ''}>Out for Delivery</option><option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option><option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div></div>`;
-                orderList.innerHTML += orderCard;
-            });
-        }
-        
-        function showAlert(message) { document.getElementById('alertMessage').textContent = message; document.getElementById('alertModal').style.display = 'flex'; }
-        
-        // --- EVENT LISTENERS ---
-        document.getElementById('addProductBtn').addEventListener('click', async () => {
-            const name = document.getElementById('newProductName').value;
-            const price = parseFloat(document.getElementById('newProductPrice').value);
-            const image = document.getElementById('newProductImage').value;
-            if(!name || !price || !image) { showAlert('कृपया प्रोडक्ट की सभी जानकारी भरें।'); return; }
-            try {
-                await addDoc(productsCollection, { name, price, image });
-                showAlert('नया प्रोडक्ट सफलतापूर्वक जोड़ा गया!');
-                document.getElementById('newProductName').value = '';
-                document.getElementById('newProductPrice').value = '';
-                document.getElementById('newProductImage').value = '';
-            } catch (e) {
-                console.error("Error adding document: ", e); showAlert('प्रोडक्ट जोड़ने में त्रुटि हुई।');
-            }
-        });
-
-        document.getElementById('adminProductList').addEventListener('click', (e) => {
-            const editBtn = e.target.closest('.edit-btn');
-            const deleteBtn = e.target.closest('.delete-btn');
-            if (editBtn) {
-                const productId = editBtn.dataset.id;
-                const product = localProducts.find(p => p.id === productId);
-                document.getElementById('editProductId').value = product.id;
-                document.getElementById('editProductName').value = product.name;
-                document.getElementById('editProductPrice').value = product.price;
-                document.getElementById('editProductImage').value = product.image;
-                document.getElementById('editProductModal').style.display = 'flex';
-            }
-            if (deleteBtn) {
-                const productId = deleteBtn.dataset.id;
-                if (confirm('क्या आप वाकई इस प्रोडक्ट को हटाना चाहते हैं?')) {
-                    deleteDoc(doc(db, 'products', productId))
-                        .then(() => showAlert('प्रोडक्ट हटा दिया गया है।'))
-                        .catch(() => showAlert('प्रोडक्ट हटाने में त्रुटि हुई।'));
+            const authenticate = async () => {
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(authInstance, initialAuthToken);
+                    } else {
+                        await signInAnonymously(authInstance);
+                    }
+                } catch (e) {
+                    console.error("Authentication Error:", e);
+                    setError("प्रमाणीकरण विफल रहा। कृपया पुनः प्रयास करें।");
                 }
-            }
-        });
-
-        document.getElementById('saveEditBtn').addEventListener('click', async () => {
-            const id = document.getElementById('editProductId').value;
-            const name = document.getElementById('editProductName').value;
-            const price = parseFloat(document.getElementById('editProductPrice').value);
-            const image = document.getElementById('editProductImage').value;
-            if (!name || !price || !image) { showAlert('कृपया सभी जानकारी भरें।'); return; }
-            const productRef = doc(db, 'products', id);
-            await updateDoc(productRef, { name, price, image });
-            showAlert('प्रोडक्ट सफलतापूर्वक अपडेट हो गया है।');
-            document.getElementById('editProductModal').style.display = 'none';
-        });
-
-        document.getElementById('placeOrderBtn').addEventListener('click', async () => {
-            const name = document.getElementById('customerName').value;
-            const address = document.getElementById('customerAddress').value;
-            const phone = document.getElementById('customerPhone').value;
-            const area = document.getElementById('serviceArea').value;
-            if(!name || !address || !phone || !area) { showAlert('कृपया सभी जानकारी भरें।'); return; }
-            const newOrder = {
-                customer: { name, address, phone, area },
-                items: [...cart],
-                total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                status: 'Pending',
-                createdAt: new Date()
             };
-             try {
-                await addDoc(ordersCollection, newOrder);
-                cart = [];
-                updateCart();
-                document.getElementById('checkoutModal').style.display = 'none';
-                showAlert('आपका ऑर्डर सफलतापूर्वक हो गया है!');
-            } catch (e) {
-                 showAlert('ऑर्डर करने में त्रुटि हुई।');
+            authenticate();
+
+            const unsubscribe = onAuthStateChanged(authInstance, (user) => {
+                if (user) {
+                    setUserId(user.uid);
+                    setIsAuthReady(true);
+                } else {
+                    setUserId(generateUserId()); 
+                    setIsAuthReady(true); 
+                }
+            });
+
+            return () => unsubscribe();
+        } catch (e) {
+            console.error("Firebase Initialization Error:", e);
+            setError("Firebase शुरू करने में गंभीर त्रुटि।");
+        }
+    }, []);
+
+    const contextValue = { db, userId, isAuthReady, error };
+
+    return (
+        <AppContext.Provider value={contextValue}>
+            {children}
+        </AppContext.Provider>
+    );
+};
+
+// ----------------------------------------------------------------------
+// 3. Components (SVG Icons)
+// ----------------------------------------------------------------------
+
+const Icons = {
+    Package: (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>),
+    Order: (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>),
+    Settings: (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.82 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35-.615.615-.615 1.697 0 2.312a1.724 1.724 0 00-1.066 2.573c-.94 1.543.82 3.31 2.37 2.37a1.724 1.724 0 002.572 1.065c.426 1.756 2.924 1.756 3.35 0 .615-.615 1.697-.615 2.312 0a1.724 1.724 0 002.573-1.066c1.543.94 3.31-.82 2.37-2.37a1.724 1.724 0 00-1.066-2.572c-1.756-.426-1.756-2.924 0-3.35.615-.615.615-1.697 0-2.312a1.724 1.724 0 001.066-2.573c.94-1.543-.82-3.31-2.37-2.37a1.724 1.724 0 00-2.572-1.065c-.426-1.756-2.924-1.756-3.35 0-.615.615-1.697.615-2.312 0zm-1.897 4.547a3.01 3.01 0 11-6.13-1.035M20.25 12a8.25 8.25 0 10-16.5 0 8.25 8.25 0 0016.5 0z" /></svg>),
+    Dashboard: (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>),
+    Edit: (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L15.232 5.232z" /></svg>),
+    Trash: (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>),
+    Search: (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>),
+};
+
+
+// ----------------------------------------------------------------------
+// 4. Utility Functions and Hooks
+// ----------------------------------------------------------------------
+
+const formatPrice = (price) => {
+    return new Intl.NumberFormat('hi-IN', { style: 'currency', currency: 'INR' }).format(price);
+};
+
+const useCollectionData = (collectionName, initialData = []) => {
+    const { db, userId, isAuthReady } = useFirebase();
+    const [data, setData] = useState(initialData);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        if (!isAuthReady || !db || !userId) return;
+
+        const collectionPath = `artifacts/${appId}/users/${userId}/${collectionName}`;
+        const ref = collection(db, collectionPath);
+        const q = query(ref);
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => {
+                list.push({ id: doc.id, ...doc.data() });
+            });
+            setData(list);
+            setIsLoading(false);
+        }, (err) => {
+            console.error(`Error listening to ${collectionName}:`, err);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [db, userId, isAuthReady, collectionName]);
+
+    return { data, isLoading };
+};
+
+// ----------------------------------------------------------------------
+// 5. App Sections (Views)
+// ----------------------------------------------------------------------
+
+// A. Product Manager View (with Search)
+const ProductManager = () => {
+    const { db, userId } = useFirebase();
+    const { data: products, isLoading } = useCollectionData('products');
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [currentProduct, setCurrentProduct] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [formState, setFormState] = useState({
+        name: '',
+        price: 0,
+        quantity: 0,
+        details: '',
+    });
+
+    const productsRef = useMemo(() => {
+        if (!db || !userId) return null;
+        const collectionPath = `artifacts/${appId}/users/${userId}/products`;
+        return collection(db, collectionPath);
+    }, [db, userId]);
+
+    const handleInputChange = (e) => {
+        const { name, value, type } = e.target;
+        setFormState(prev => ({
+            ...prev,
+            [name]: type === 'number' ? parseFloat(value) : value,
+        }));
+    };
+
+    const openModalForNew = () => {
+        setCurrentProduct(null);
+        setFormState({ name: '', price: 0, quantity: 0, details: '' });
+        setIsModalOpen(true);
+    };
+
+    const openModalForEdit = (product) => {
+        setCurrentProduct(product);
+        setFormState({
+            name: product.name,
+            price: product.price || 0,
+            quantity: product.quantity || 0,
+            details: product.details || '',
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!productsRef) return;
+
+        try {
+            const dataToSave = {
+                ...formState,
+                price: parseFloat(formState.price) || 0,
+                quantity: parseInt(formState.quantity) || 0,
+                updatedAt: serverTimestamp(),
+            };
+
+            if (currentProduct) {
+                await setDoc(doc(productsRef, currentProduct.id), dataToSave, { merge: true });
+            } else {
+                await addDoc(productsRef, { 
+                    ...dataToSave,
+                    createdAt: serverTimestamp(),
+                });
             }
-        });
-        
-        document.getElementById('orderList').addEventListener('change', e => {
-            if(e.target.classList.contains('orderStatusSelect')) {
-                const orderId = e.target.dataset.id;
-                const newStatus = e.target.value;
-                const orderRef = doc(db, 'orders', orderId);
-                updateDoc(orderRef, { status: newStatus })
-                    .then(() => showAlert(`ऑर्डर का स्टेटस '${newStatus}' में बदल दिया गया है।`))
-                    .catch(() => showAlert('स्टेटस बदलने में त्रुटि हुई।'));
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error("उत्पाद सेव करने में त्रुटि:", error);
+            // Replace alert with a temporary message box if this was a larger component
+            alert("उत्पाद सेव करने में त्रुटि। कंसोल देखें।"); 
+        }
+    };
+
+    const handleDelete = async (productId) => {
+        if (!productsRef) return;
+        if (window.confirm("क्या आप वाकई इस उत्पाद को हटाना चाहते हैं?")) {
+            try {
+                await deleteDoc(doc(productsRef, productId));
+            } catch (error) {
+                console.error("उत्पाद हटाने में त्रुटि:", error);
+                alert("उत्पाद हटाने में त्रुटि। कंसोल देखें।");
             }
+        }
+    };
+
+    // Client-side search and filtering
+    const filteredProducts = useMemo(() => {
+        if (!searchTerm) return products;
+        const lowerCaseSearch = searchTerm.toLowerCase();
+        return products.filter(product => 
+            product.name.toLowerCase().includes(lowerCaseSearch) ||
+            product.details?.toLowerCase().includes(lowerCaseSearch)
+        );
+    }, [products, searchTerm]);
+
+    const Modal = () => (
+        <div className={`fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 transition-opacity duration-300 ${isModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-transform duration-300 scale-100">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">
+                    {currentProduct ? 'उत्पाद संपादित करें' : 'नया उत्पाद जोड़ें'}
+                </h2>
+                <form onSubmit={handleSubmit}>
+                    <div className="space-y-4">
+                        <input
+                            type="text"
+                            name="name"
+                            value={formState.name}
+                            onChange={handleInputChange}
+                            placeholder="उत्पाद का नाम"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            required
+                        />
+                        <textarea
+                            name="details"
+                            value={formState.details}
+                            onChange={handleInputChange}
+                            placeholder="उत्पाद का विवरण (गुणवत्ता, प्रकार)"
+                            rows="2"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        ></textarea>
+                        <div className="flex space-x-4">
+                            <div className='w-1/2'>
+                                <label className="text-sm font-medium text-gray-700">मूल्य (INR)</label>
+                                <input
+                                    type="number"
+                                    name="price"
+                                    value={formState.price}
+                                    onChange={handleInputChange}
+                                    min="0"
+                                    step="0.01"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div className='w-1/2'>
+                                <label className="text-sm font-medium text-gray-700">स्टॉक मात्रा (Quantity)</label>
+                                <input
+                                    type="number"
+                                    name="quantity"
+                                    value={formState.quantity}
+                                    onChange={handleInputChange}
+                                    min="0"
+                                    step="1"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex justify-end space-x-3 mt-6">
+                        <button
+                            type="button"
+                            onClick={() => setIsModalOpen(false)}
+                            className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+                        >
+                            रद्द करें
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md"
+                        >
+                            सेव करें
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="space-y-6">
+            <Modal />
+
+            <div className="flex justify-between items-center pb-4 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-800">उत्पाद सूची ({products.length})</h2>
+                <button
+                    onClick={openModalForNew}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-md"
+                >
+                    <Icons.Package className="w-5 h-5"/>
+                    <span>नया उत्पाद जोड़ें</span>
+                </button>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+                <input
+                    type="text"
+                    placeholder="उत्पाद के नाम या विवरण से खोजें..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 transition shadow-sm"
+                />
+                <Icons.Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"/>
+            </div>
+
+            {isLoading && <p className="text-center p-8 text-gray-500">उत्पाद लोड हो रहे हैं...</p>}
+            
+            {!isLoading && filteredProducts.length === 0 && (
+                <div className="text-center p-12 bg-gray-100 rounded-xl">
+                    <p className="text-lg text-gray-600">कोई उत्पाद नहीं मिला।</p>
+                    <p className="text-sm text-gray-400 mt-1">अपनी खोज को बदलें या एक नया उत्पाद जोड़ें।</p>
+                </div>
+            )}
+
+            {!isLoading && filteredProducts.length > 0 && (
+                <div className="overflow-x-auto bg-white rounded-xl shadow-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">उत्पाद का नाम</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">मूल्य</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">स्टॉक</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">विवरण</th>
+                                <th className="px-6 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredProducts.map(product => (
+                                <tr key={product.id} className="hover:bg-blue-50 transition duration-150">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {product.name}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-semibold">
+                                        {formatPrice(product.price)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                            product.quantity > 20 ? 'bg-green-100 text-green-800' :
+                                            product.quantity > 5 ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-red-100 text-red-800'
+                                        }`}>
+                                            {product.quantity}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                                        {product.details || 'कोई विवरण नहीं'}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div className="flex justify-end space-x-2">
+                                            <button
+                                                onClick={() => openModalForEdit(product)}
+                                                className="text-indigo-600 hover:text-indigo-900 p-1 rounded-full hover:bg-indigo-100 transition"
+                                                title="संपादित करें"
+                                            >
+                                                <Icons.Edit className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(product.id)}
+                                                className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-100 transition"
+                                                title="हटाएँ"
+                                            >
+                                                <Icons.Trash className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// B. Order Manager View
+const OrderManager = () => {
+    const { data: orders, isLoading } = useCollectionData('orders');
+    const { db, userId } = useFirebase();
+
+    // Reference to orders collection
+    const ordersRef = useMemo(() => {
+        if (!db || !userId) return null;
+        const collectionPath = `artifacts/${appId}/users/${userId}/orders`;
+        return collection(db, collectionPath);
+    }, [db, userId]);
+
+    // Mock order for demonstration purposes
+    const handleMockOrder = async () => {
+        if (!ordersRef) return;
+        try {
+            await addDoc(ordersRef, {
+                customerName: 'नया ऑनलाइन ग्राहक',
+                customerAddress: 'पिन: 110001, नई दिल्ली',
+                totalAmount: Math.floor(Math.random() * 800) + 200 + 0.99, // Random amount
+                status: 'नया ऑर्डर', 
+                trackingId: 'TRK' + Math.floor(Math.random() * 900000 + 100000),
+                items: [
+                    { name: "बिस्किट का पैकेट", qty: 3, price: 15 },
+                    { name: "गेहूं का आटा (10Kg)", qty: 1, price: 350 },
+                ],
+                createdAt: serverTimestamp(),
+            });
+        } catch (error) {
+            console.error("मॉक ऑर्डर जोड़ने में त्रुटि:", error);
+            alert("मॉक ऑर्डर जोड़ने में त्रुटि।");
+        }
+    };
+
+    const updateOrderStatus = async (orderId, newStatus) => {
+        if (!ordersRef) return;
+        try {
+            await setDoc(doc(ordersRef, orderId), { status: newStatus }, { merge: true });
+        } catch (error) {
+            console.error("ऑर्डर स्थिति अपडेट करने में त्रुटि:", error);
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'नया ऑर्डर': return 'bg-red-100 text-red-800 border-red-500';
+            case 'प्रोसेसिंग': return 'bg-yellow-100 text-yellow-800 border-yellow-500';
+            case 'डिलीवरी के लिए निकला': return 'bg-indigo-100 text-indigo-800 border-indigo-500';
+            case 'डिलीवर किया गया': return 'bg-green-100 text-green-800 border-green-500';
+            case 'रद्द': return 'bg-gray-100 text-gray-800 border-gray-500';
+            default: return 'bg-gray-100 text-gray-800 border-gray-500';
+        }
+    };
+
+    // Sort orders: Newest first
+    const sortedOrders = useMemo(() => {
+        return [...orders].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+    }, [orders]);
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center pb-4 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-800">ग्राहक ऑर्डर प्रबंधन ({orders.length})</h2>
+                <button
+                    onClick={handleMockOrder}
+                    className="flex items-center space-x-2 px-4 py-2 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition shadow-md"
+                >
+                    <Icons.Order className="w-5 h-5"/>
+                    <span>मॉक ऑर्डर जोड़ें</span>
+                </button>
+            </div>
+
+            {isLoading && <p className="text-center p-8 text-gray-500">ऑर्डर लोड हो रहे हैं...</p>}
+            
+            {!isLoading && orders.length === 0 && (
+                <div className="text-center p-12 bg-gray-100 rounded-xl">
+                    <p className="text-lg text-gray-600">आपके पास अभी कोई ऑर्डर नहीं है।</p>
+                </div>
+            )}
+
+            {!isLoading && sortedOrders.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {sortedOrders.map(order => (
+                        <div key={order.id} className={`bg-white p-5 rounded-xl shadow-lg border-l-4 ${getStatusColor(order.status).split(' ').pop()}`}>
+                            <div className="flex justify-between items-start border-b pb-3 mb-3">
+                                <div>
+                                    <p className="text-xl font-bold text-gray-800">{formatPrice(order.totalAmount)}</p>
+                                    <p className="text-xs text-gray-500">ट्रैकिंग ID: <span className='font-mono'>{order.trackingId}</span></p>
+                                </div>
+                                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                                    {order.status}
+                                </span>
+                            </div>
+
+                            <p className="text-sm font-medium text-gray-700">ग्राहक: {order.customerName}</p>
+                            <p className="text-xs text-gray-500 mt-1 mb-3">पता: {order.customerAddress}</p>
+                            
+                            {/* Items Summary */}
+                            <div className="bg-gray-50 p-3 rounded-lg">
+                                <p className="text-xs font-semibold text-gray-600 mb-1">आइटम सारांश:</p>
+                                <ul className="list-disc list-inside text-xs text-gray-500 ml-4 max-h-16 overflow-y-auto">
+                                    {order.items?.map((item, index) => (
+                                        <li key={index}>{item.name} (x{item.qty})</li>
+                                    ))}
+                                </ul>
+                            </div>
+                            
+                            {/* Update Status Actions */}
+                            <div className="mt-4 pt-3 border-t flex flex-wrap gap-2">
+                                <span className="text-xs font-medium text-gray-500 mr-2 self-center">स्थिति:</span>
+                                {['नया ऑर्डर', 'प्रोसेसिंग', 'डिलीवरी के लिए निकला', 'डिलीवर किया गया', 'रद्द'].map(status => (
+                                    <button
+                                        key={status}
+                                        onClick={() => updateOrderStatus(order.id, status)}
+                                        disabled={order.status === status}
+                                        className={`px-3 py-1 text-xs font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed ${getStatusColor(status).replace('-100', '-600').replace('-800', '-50')} shadow-sm`}
+                                    >
+                                        {status}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// C. Settings View (Service Area)
+const Settings = () => {
+    const { db, userId, isAuthReady } = useFirebase();
+    const [serviceArea, setServiceArea] = useState('');
+    const [status, setStatus] = useState('');
+
+    const settingsDocRef = useMemo(() => {
+        if (!db || !userId) return null;
+        const collectionPath = `artifacts/${appId}/users/${userId}/settings`;
+        return doc(collection(db, collectionPath), 'store_settings');
+    }, [db, userId]);
+
+    useEffect(() => {
+        if (!isAuthReady || !settingsDocRef) return;
+
+        const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setServiceArea(docSnap.data().serviceArea || '');
+            } else {
+                setServiceArea('सिर्फ स्थानीय पिन कोड (Local Pincodes)');
+            }
+        }, (err) => {
+            console.error("Settings load error:", err);
+            setStatus("सेटिंग्स लोड करने में त्रुटि।");
         });
 
-        // --- REALTIME LISTENERS ---
-        onSnapshot(productsCollection, (snapshot) => {
-            localProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderProducts();
-            renderAdminProducts();
-        });
-        
-         onSnapshot(ordersCollection, (snapshot) => {
-            localOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderOrders();
-        });
+        return () => unsubscribe();
+    }, [isAuthReady, settingsDocRef]);
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        if (!settingsDocRef) return;
+
+        setStatus('सेव हो रहा है...');
+        try {
+            await setDoc(settingsDocRef, { 
+                serviceArea: serviceArea,
+                updatedAt: serverTimestamp(),
+            }, { merge: true });
+            setStatus('सफलतापूर्वक सेव किया गया!');
+            setTimeout(() => setStatus(''), 3000);
+        } catch (error) {
+            console.error("सेव करने में त्रुटि:", error);
+            setStatus('सेव करने में त्रुटि हुई।');
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">डिलीवरी और सेवा क्षेत्र सेटिंग</h2>
+            
+            <form onSubmit={handleSave} className="bg-white p-6 rounded-xl shadow-lg space-y-4">
+                <label className="block text-sm font-medium text-gray-700" htmlFor="service-area">
+                    सेवा क्षेत्र: (वह एरिया जहाँ आप ऑर्डर डिलीवर करेंगे)
+                </label>
+                <textarea
+                    id="service-area"
+                    value={serviceArea}
+                    onChange={(e) => setServiceArea(e.target.value)}
+                    rows="6"
+                    placeholder="वह एरिया यहाँ विस्तार से लिखें जहाँ आप ऑर्डर डिलीवर करेंगे। (जैसे: सिर्फ 40001 से 40009 तक के पिन कोड, या सिर्फ पुणे शहर)"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-inner"
+                    required
+                ></textarea>
+                
+                <div className="flex justify-between items-center pt-3">
+                    <button
+                        type="submit"
+                        className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition shadow-md"
+                    >
+                        सेटिंग्स सेव करें
+                    </button>
+                    {status && (
+                        <p className={`text-sm font-medium ${status.includes('त्रुटि') ? 'text-red-500' : 'text-green-600'}`}>
+                            {status}
+                        </p>
+                    )}
+                </div>
+            </form>
+            
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm font-semibold text-red-800">महत्वपूर्ण नोट: बाहरी ट्रैकिंग</p>
+                <p className="text-sm text-red-700 mt-1">आपके ग्राहक को वास्तविक समय (Real-time) में ऑर्डर ट्रैक करने की सुविधा देने के लिए, आपको किसी बाहरी डिलीवरी सेवा प्रदाता (जैसे Shiprocket, Delhivery, आदि) के API को इंटीग्रेट करना होगा। यह ऐप केवल आपके आंतरिक प्रबंधन (Internal Management) के लिए है।</p>
+            </div>
+        </div>
+    );
+};
 
 
-        // --- UI Listeners (No database interaction) ---
-        function updateCart(){let t=document.getElementById('cartItems'),e=document.getElementById('cartCount'),a=document.getElementById('cartTotal'),n=0;t.innerHTML='',cart.length===0?(t.innerHTML='<p class="text-center text-gray-500">आपका कार्ट खाली है।</p>',document.getElementById('checkoutBtn').disabled=!0):(document.getElementById('checkoutBtn').disabled=!1,cart.forEach(e=>{n+=e.price*e.quantity,t.innerHTML+=`<div class="flex justify-between items-center mb-3"><div><p class="font-semibold">${e.name}</p><p class="text-sm text-gray-600">₹${e.price} x ${e.quantity}</p></div><div class="flex items-center space-x-2"><button data-id="${e.id}" class="decreaseQtyBtn bg-gray-200 px-2 rounded">-</button><span>${e.quantity}</span><button data-id="${e.id}" class="increaseQtyBtn bg-gray-200 px-2 rounded">+</button><button data-id="${e.id}" class="removeFromCartBtn text-red-500"><i class="fa-solid fa-trash"></i></button></div></div>`})),e.textContent=cart.reduce((t,e)=>t+e.quantity,0),a.textContent=`₹${n}`}
-        document.getElementById('productGrid').addEventListener('click',t=>{if(t.target.closest('.addToCartBtn')){let e=t.target.closest('.addToCartBtn').dataset.id,a=localProducts.find(t=>t.id===e),n=cart.find(t=>t.id===e);n?n.quantity++:cart.push({...a,quantity:1}),updateCart(),showAlert(`${a.name} कार्ट में जोड़ा गया!`)}});
-        document.getElementById('cartItems').addEventListener('click',t=>{let e=t.target.closest('button');if(!e)return;let a=e.dataset.id,n=cart.find(t=>t.id===a);n&&(e.classList.contains('increaseQtyBtn')?n.quantity++:e.classList.contains('decreaseQtyBtn')?n.quantity>1?n.quantity--:cart=cart.filter(t=>t.id!==a):e.classList.contains('removeFromCartBtn')&&(cart=cart.filter(t=>t.id!==a)),updateCart())});
-        document.getElementById('cartButton').addEventListener('click',()=>{updateCart(),document.getElementById('cartModal').style.display='flex'});
-        document.getElementById('closeCartBtn').addEventListener('click',()=>document.getElementById('cartModal').style.display='none');
-        document.getElementById('checkoutBtn').addEventListener('click',()=>{document.getElementById('cartModal').style.display='none',document.getElementById('checkoutModal').style.display='flex'});
-        document.getElementById('cancelCheckoutBtn').addEventListener('click',()=>document.getElementById('checkoutModal').style.display='none');
-        document.getElementById('closeAlertBtn').addEventListener('click',()=>{document.getElementById('alertModal').style.display='none'});
-        document.getElementById('adminAccessBtn').addEventListener('click',()=>{document.getElementById('customerView').classList.add('hidden'),document.getElementById('adminView').classList.remove('hidden')});
-        document.getElementById('customerViewBtn').addEventListener('click',()=>{document.getElementById('adminView').classList.add('hidden'),document.getElementById('customerView').classList.remove('hidden')});
-        document.getElementById('adminLoginBtn').addEventListener('click',()=>{let t=document.getElementById('adminPassword').value;t==='sohail123'?(document.getElementById('adminLogin').classList.add('hidden'),document.getElementById('adminDashboard').classList.remove('hidden')): (document.getElementById('loginError').classList.remove('hidden'),setTimeout(()=>document.getElementById('loginError').classList.add('hidden'),3e3))});
-        document.querySelectorAll('.tab-btn').forEach(t=>{t.addEventListener('click',()=>{document.querySelectorAll('.tab-btn').forEach(t=>{t.classList.remove('bg-blue-500','text-white'),t.classList.add('bg-gray-200','text-black')}),t.classList.add('bg-blue-500','text-white'),t.classList.remove('bg-gray-200','text-black'),document.getElementById('ordersTab').classList.add('hidden'),document.getElementById('productsTab').classList.add('hidden'),document.getElementById(t.dataset.tab+'Tab').classList.remove('hidden')})});
-        document.getElementById('cancelEditBtn').addEventListener('click',()=>document.getElementById('editProductModal').style.display='none');
-        let serviceAreaSelect=document.getElementById('serviceArea');serviceAreas.forEach(t=>{let e=document.createElement('option');e.value=t,e.textContent=t,serviceAreaSelect.appendChild(e)});
-        document.getElementById('searchInput').addEventListener('input',t=>{let e=t.target.value.toLowerCase(),a=localProducts.filter(t=>t.name.toLowerCase().includes(e));renderProducts(a)});
-        
-        // Initial load
-        document.getElementById('loadingSpinner').style.display = 'flex';
-        document.getElementById('customerView').classList.add('hidden');
-    </script>
-</body>
-</html>
+// D. Dashboard View
+const Dashboard = () => {
+    const { data: products } = useCollectionData('products');
+    const { data: orders } = useCollectionData('orders');
+    
+    // Calculate key metrics
+    const totalProducts = products.length;
+    const totalOrders = orders.length;
+    const processingOrders = orders.filter(o => o.status === 'प्रोसेसिंग').length;
+    const lowStockCount = products.filter(p => (p.quantity || 0) < 10 && (p.quantity || 0) > 0).length;
+    
+    // Revenue from delivered orders
+    const totalRevenue = orders
+        .filter(o => o.status === 'डिलीवर किया गया')
+        .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+    const metrics = [
+        { name: 'कुल राजस्व (Delivered)', value: formatPrice(totalRevenue), icon: Icons.Order, color: 'bg-green-100 text-green-700' },
+        { name: 'प्रोसेसिंग में ऑर्डर', value: processingOrders, icon: Icons.Order, color: 'bg-yellow-100 text-yellow-700' },
+        { name: 'कुल उत्पाद', value: totalProducts, icon: Icons.Package, color: 'bg-blue-100 text-blue-700' },
+        { name: 'कम स्टॉक वाले उत्पाद', value: lowStockCount, icon: Icons.Package, color: 'bg-red-100 text-red-700' },
+    ];
+
+    return (
+        <div className="space-y-8">
+            <h2 className="text-3xl font-bold text-gray-800">आपका स्टोर डैशबोर्ड</h2>
+
+            {/* Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {metrics.map((metric, index) => (
+                    <div key={index} className="bg-white p-6 rounded-xl shadow-xl border border-gray-100 flex items-center space-x-4 transition hover:shadow-2xl">
+                        <div className={`p-3 rounded-full ${metric.color}`}>
+                            <metric.icon className="w-7 h-7 stroke-2"/>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">{metric.name}</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">{metric.value}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Recent Orders and Low Stock Alerts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <h3 className="text-xl font-semibold text-gray-800 border-b pb-2 mb-3">हाल के नए ऑर्डर</h3>
+                    {orders.filter(o => o.status === 'नया ऑर्डर' || o.status === 'प्रोसेसिंग').slice(0, 5).map(order => (
+                        <div key={order.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                            <div className="text-sm">
+                                <span className="font-medium text-gray-700">{order.customerName}</span>
+                                <span className="text-xs text-gray-500 block">ट्रैकिंग: {order.trackingId}</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="font-bold text-green-600">{formatPrice(order.totalAmount)}</span>
+                                <span className={`text-xs block px-2 py-0.5 rounded-full font-semibold ${getStatusColor(order.status)}`}>
+                                    {order.status}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                    {orders.filter(o => o.status === 'नया ऑर्डर' || o.status === 'प्रोसेसिंग').length === 0 && (
+                        <p className="text-sm text-gray-500 p-4 bg-green-50 rounded-lg text-center">कोई नया ऑर्डर नहीं!</p>
+                    )}
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <h3 className="text-xl font-semibold text-gray-800 border-b pb-2 mb-3">कम स्टॉक अलर्ट (स्टॉक &lt; 10)</h3>
+                    {products.filter(p => (p.quantity || 0) < 10 && (p.quantity || 0) > 0).slice(0, 5).map(product => (
+                        <div key={product.id} className="flex justify-between items-center py-2 border-b last:border-b-0 text-sm">
+                            <span className="font-medium text-red-700">{product.name}</span>
+                            <span className="font-bold text-red-600">सिर्फ {product.quantity} बचा है!</span>
+                        </div>
+                    ))}
+                    {lowStockCount === 0 && (
+                         <p className="text-sm text-gray-500 p-4 bg-blue-50 rounded-lg text-center">सभी उत्पाद स्टॉक में हैं।</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// ----------------------------------------------------------------------
+// 6. Main App Component
+// ----------------------------------------------------------------------
+const AppContent = () => {
+    const [view, setView] = useState('Dashboard'); // 'Dashboard', 'Products', 'Orders', 'Settings'
+    const { isAuthReady, error, userId } = useFirebase();
+
+    const renderView = useCallback(() => {
+        switch (view) {
+            case 'Products': return <ProductManager />;
+            case 'Orders': return <OrderManager />;
+            case 'Settings': return <Settings />;
+            case 'Dashboard':
+            default: return <Dashboard />;
+        }
+    }, [view]);
+
+    if (!isAuthReady) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-gray-900">
+                <div className="p-8 bg-white rounded-xl shadow-lg text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-lg font-semibold text-blue-600">सिस्टम प्रमाणीकरण हो रहा है...</p>
+                    <p className="text-sm text-gray-500 mt-2">बेहतर अनुभव के लिए कृपया प्रतीक्षा करें।</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-red-50">
+                <div className="p-8 bg-white rounded-xl shadow-lg text-center border border-red-300">
+                    <p className="text-xl font-bold text-red-700">गंभीर त्रुटि</p>
+                    <p className="text-sm text-gray-600 mt-2">{error}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Navigation Item Component
+    const NavItem = ({ name, icon: Icon, label }) => (
+        <button
+            onClick={() => setView(name)}
+            className={`flex items-center space-x-3 p-3 rounded-lg w-full text-left transition ${
+                view === name ? 'bg-indigo-700 text-white shadow-lg' : 'text-gray-300 hover:bg-gray-700'
+            }`}
+        >
+            <Icon className="w-6 h-6 stroke-2"/>
+            <span className="font-medium">{label}</span>
+        </button>
+    );
+
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <div className="flex flex-col lg:flex-row max-w-7xl mx-auto pt-0 pb-8 sm:px-6 lg:px-8">
+                {/* Sidebar Navigation (Fixed width, dark theme) */}
+                <div className="lg:w-64 w-full bg-gray-800 p-6 rounded-t-xl lg:rounded-xl shadow-2xl lg:sticky lg:top-8 h-fit mb-6 lg:mb-0">
+                    <h2 className="text-3xl font-extrabold text-white mb-8 border-b border-gray-700 pb-2">
+                        StorePro <span className="text-sm font-light text-indigo-400">Manager</span>
+                    </h2>
+                    <nav className="space-y-2">
+                        <NavItem name="Dashboard" icon={Icons.Dashboard} label="डैशबोर्ड" />
+                        <NavItem name="Products" icon={Icons.Package} label="उत्पाद प्रबंधन" />
+                        <NavItem name="Orders" icon={Icons.Order} label="ऑर्डर ट्रैकिंग" />
+                        <NavItem name="Settings" icon={Icons.Settings} label="सेटिंग्स" />
+                    </nav>
+
+                    <div className="mt-10 pt-4 border-t border-gray-700">
+                        <p className="text-xs text-gray-400 font-medium truncate">उपयोगकर्ता ID:</p>
+                        <p className="text-xs text-indigo-300 break-all mt-1">{userId}</p>
+                    </div>
+                </div>
+
+                {/* Main Content Area (Light theme) */}
+                <main className="lg:flex-1 lg:ml-8 w-full p-4 lg:p-0">
+                    <div className="bg-white p-6 md:p-8 rounded-xl shadow-2xl min-h-[85vh]">
+                        {renderView()}
+                    </div>
+                </main>
+            </div>
+        </div>
+    );
+};
+
+const App = () => (
+    <FirebaseProvider>
+        <AppContent />
+    </FirebaseProvider>
+);
+
+export default App;
